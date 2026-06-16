@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+dist/
+build/
+
+# Data & models (ne pas versionner les données brutes ni les binaires)
+data/*.csv
+models/
+mlruns/
+mlartifacts/
+
+# Env
+.env
+
+# IDE
+.vscode/
+.idea/
+*.DS_Store
