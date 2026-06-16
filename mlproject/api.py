@@ -1,7 +1,8 @@
-"""API de prediction FastAPI.
+"""API de prediction FastAPI — Loan Approval Classifier.
 
 Seance 12 - TP FastAPI
-    Completez les TODO (S12-1 a S12-5 bonus).
+    Expose un endpoint POST /predict qui charge le modele depuis
+    models/model.joblib et retourne la prediction + probabilite.
 
 Lancement :
     uvicorn mlproject.api:app --reload
@@ -9,49 +10,64 @@ Lancement :
 """
 from __future__ import annotations
 
+import logging
 import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 
+import joblib
+import pandas as pd
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+
+logger = logging.getLogger(__name__)
 
 MODEL_PATH = Path(os.getenv("MODEL_PATH", "models/model.joblib"))
+MODEL_NAME = os.getenv("MODEL_NAME", "loan-classifier")
+MODEL_VERSION = os.getenv("MODEL_VERSION", "latest")
 
-# Stockage global du modele charge au demarrage
 ml: dict = {}
 
 
-# TODO (S12-1) : definir la classe Features avec les colonnes du dataset :
-#   no_of_dependents: int
-#   education: str
-#   self_employed: str
-#   income_annum: float
-#   loan_amount: float
-#   loan_term: int
-#   cibil_score: int
-#   residential_assets_value: float
-#   commercial_assets_value: float
-#   luxury_assets_value: float
-#   bank_asset_value: float
+# ---------------------------------------------------------------------------
+# S12-1 : Schema des features — colonnes du dataset loan approval
+# ---------------------------------------------------------------------------
+
 class Features(BaseModel):
-    """Schema des features d'entree — a completer (S12-1)."""
+    no_of_dependents: int = Field(..., ge=0, le=20, example=2)
+    education: str = Field(..., example="Graduate")
+    self_employed: str = Field(..., example="No")
+    income_annum: float = Field(..., gt=0, example=5000000)
+    loan_amount: float = Field(..., gt=0, example=12000000)
+    loan_term: int = Field(..., ge=1, le=30, example=10)
+    cibil_score: int = Field(..., ge=300, le=900, example=750)
+    residential_assets_value: float = Field(..., example=8000000)
+    commercial_assets_value: float = Field(..., example=2000000)
+    luxury_assets_value: float = Field(..., example=5000000)
+    bank_asset_value: float = Field(..., example=3000000)
 
-    pass  # TODO (S12-1) : remplacer par les vraies colonnes
 
+# ---------------------------------------------------------------------------
+# S12-2 : Schema de la reponse
+# ---------------------------------------------------------------------------
 
-# TODO (S12-2) : definir PredictionResponse avec prediction: int et probability: float
 class PredictionResponse(BaseModel):
-    """Schema de la reponse de prediction — a completer (S12-2)."""
+    prediction: int = Field(..., description="0 = Rejected, 1 = Approved")
+    probability: float = Field(..., description="Probabilite d'approbation")
+    label: str = Field(..., description="Approved ou Rejected")
 
-    pass  # TODO (S12-2)
 
+# ---------------------------------------------------------------------------
+# S12-3 : Chargement du modele au demarrage
+# ---------------------------------------------------------------------------
 
-# TODO (S12-3) : implementer le lifespan pour charger le modele au demarrage
-#   import joblib ; ml["model"] = joblib.load(MODEL_PATH)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # TODO (S12-3) : charger le modele ici
+    if not MODEL_PATH.exists():
+        logger.warning("Modele introuvable : %s — lancez d'abord make train", MODEL_PATH)
+    else:
+        ml["model"] = joblib.load(MODEL_PATH)
+        logger.info("Modele charge depuis %s", MODEL_PATH)
     yield
     ml.clear()
 
@@ -64,22 +80,41 @@ app = FastAPI(
 )
 
 
+# ---------------------------------------------------------------------------
+# Endpoints
+# ---------------------------------------------------------------------------
+
 @app.get("/health")
 def health():
     """Verificateur de disponibilite du service."""
     return {"status": "ok", "model_loaded": "model" in ml}
 
 
-# TODO (S12-4) : implementer POST /predict
-#   @app.post("/predict", response_model=PredictionResponse)
-#   def predict(features: Features):
-#       if "model" not in ml:
-#           raise HTTPException(status_code=503, detail="Modele non charge")
-#       import pandas as pd
-#       df = pd.DataFrame([features.model_dump()])
-#       proba = ml["model"].predict_proba(df)[0, 1]
-#       return PredictionResponse(prediction=int(proba >= 0.5), probability=float(proba))
+# S12-4 : Endpoint de prediction
+@app.post("/predict", response_model=PredictionResponse)
+def predict(features: Features):
+    """Predire l'approbation d'un pret a partir des features du demandeur."""
+    if "model" not in ml:
+        raise HTTPException(status_code=503, detail="Modele non charge. Lancez make train.")
+
+    df = pd.DataFrame([features.model_dump()])
+    proba = float(ml["model"].predict_proba(df)[0, 1])
+    prediction = int(proba >= 0.5)
+
+    return PredictionResponse(
+        prediction=prediction,
+        probability=round(proba, 4),
+        label="Approved" if prediction == 1 else "Rejected",
+    )
 
 
-# TODO (S12-5 bonus) : endpoint GET /info exposant MODEL_NAME et MODEL_VERSION
-#   depuis les variables d'environnement
+# S12-5 bonus : informations sur le modele deploye
+@app.get("/info")
+def info():
+    """Informations sur le modele actuellement charge."""
+    return {
+        "model_name": MODEL_NAME,
+        "model_version": MODEL_VERSION,
+        "model_path": str(MODEL_PATH),
+        "model_loaded": "model" in ml,
+    }
