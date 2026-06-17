@@ -1,0 +1,15 @@
+.venv/
+mlruns/
+mlartifacts/
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.git/
+.github/
+tests/
+data/
+.env
+.DS_Store
+dist/
+build/
