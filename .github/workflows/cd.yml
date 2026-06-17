@@ -1,0 +1,141 @@
+name: CD
+
+on:
+  push:
+    branches: [main]
+
+# Permissions nécessaires pour pousser sur ghcr.io
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build-and-push:
+    name: Build & Push Docker image
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Générer un modèle minimal pour que l'image soit fonctionnelle
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies & train model
+        run: |
+          pip install -e ".[dev]"
+          mkdir -p data models
+          python -c "
+          import pandas as pd, numpy as np
+          rng = np.random.default_rng(42)
+          n = 500
+          pd.DataFrame({
+              'loan_id': range(1, n+1),
+              'no_of_dependents': rng.integers(0, 6, n),
+              'education': rng.choice(['Graduate', 'Not Graduate'], n),
+              'self_employed': rng.choice(['Yes', 'No'], n),
+              'income_annum': rng.integers(200000, 9900000, n),
+              'loan_amount': rng.integers(300000, 39500000, n),
+              'loan_term': rng.integers(2, 20, n),
+              'cibil_score': rng.integers(300, 900, n),
+              'residential_assets_value': rng.integers(100000, 29000000, n),
+              'commercial_assets_value': rng.integers(0, 19700000, n),
+              'luxury_assets_value': rng.integers(300000, 39200000, n),
+              'bank_asset_value': rng.integers(0, 14900000, n),
+              'loan_status': rng.choice([' Approved', ' Rejected'], n),
+          }).to_csv('data/loan_approval_dataset.csv', index=False)
+          "
+          python -c "
+          from mlproject.data import load_data, split
+          from mlproject.features import build_preprocessor
+          from sklearn.linear_model import LogisticRegression
+          from sklearn.pipeline import Pipeline
+          import joblib
+          df = load_data()
+          X_train, X_test, y_train, y_test = split(df)
+          model = Pipeline([('pre', build_preprocessor()), ('clf', LogisticRegression(max_iter=1000))])
+          model.fit(X_train, y_train)
+          joblib.dump(model, 'models/model.joblib')
+          print('Modele sauvegarde dans models/model.joblib')
+          "
+
+      # Connexion au GitHub Container Registry avec le token GitHub Actions
+      - name: Log in to ghcr.io
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Extraction des métadonnées (tags + labels) pour l'image
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=raw,value=latest
+            type=sha,prefix=sha-,format=short
+
+      # Build + push en une seule étape (buildx)
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+  smoke-test:
+    name: Smoke test
+    runs-on: ubuntu-latest
+    needs: build-and-push
+
+    steps:
+      - name: Log in to ghcr.io
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Pull & run API container
+        run: |
+          docker run -d --name api -p 8000:8000 \
+            ghcr.io/${{ github.repository }}:latest
+          # Attendre que le serveur soit prêt (max 30s)
+          for i in $(seq 1 15); do
+            sleep 2
+            curl -sf http://localhost:8000/health && break
+            echo "Tentative $i/15..."
+          done
+
+      - name: Verify /health endpoint
+        run: |
+          response=$(curl -s http://localhost:8000/health)
+          echo "Response: $response"
+          echo "$response" | grep -q '"status":"ok"'
+
+      - name: Verify /predict endpoint
+        run: |
+          curl -sf -X POST http://localhost:8000/predict \
+            -H "Content-Type: application/json" \
+            -d '{
+              "no_of_dependents": 2,
+              "education": "Graduate",
+              "self_employed": "No",
+              "income_annum": 5000000,
+              "loan_amount": 12000000,
+              "loan_term": 10,
+              "cibil_score": 750,
+              "residential_assets_value": 8000000,
+              "commercial_assets_value": 2000000,
+              "luxury_assets_value": 5000000,
+              "bank_asset_value": 3000000
+            }' | tee /tmp/predict.json
+          cat /tmp/predict.json | grep -q '"prediction"'
+
+      - name: Cleanup
+        if: always()
+        run: docker rm -f api || true
