@@ -59,6 +59,7 @@ services:
       - ./data:/opt/airflow/data
       - ./models:/opt/airflow/models
       - airflow_home:/opt/airflow
+      - mlflow_data:/mlflow
     command: standalone
     depends_on:
       - api
