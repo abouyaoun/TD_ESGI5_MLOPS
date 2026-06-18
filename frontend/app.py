@@ -147,6 +147,7 @@ st.markdown("Système de classification automatique des demandes de prêt bancai
 st.divider()
 
 # ── Config API ─────────────────────────────────────────────────────────────────
+api_url = API_URL
 with st.expander("⚙️ Configuration de l'API", expanded=False):
     api_url = st.text_input("URL de l'API", value=API_URL, label_visibility="collapsed")
     st.markdown(f'<div class="api-bar">🔗 {api_url}/docs</div>', unsafe_allow_html=True)
@@ -162,8 +163,6 @@ with st.expander("⚙️ Configuration de l'API", expanded=False):
                     st.warning(f"Statut : {r.status_code}")
             except Exception:
                 st.error("API inaccessible")
-else:
-    api_url = API_URL
 
 predict_tab, history_tab, info_tab = st.tabs(["🔮 Prédiction", "📋 Historique", "ℹ️ À propos"])
 
