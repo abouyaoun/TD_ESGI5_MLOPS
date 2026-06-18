@@ -21,3 +21,34 @@ services:
     depends_on:
       - api
     restart: unless-stopped
+
+  airflow:
+    build:
+      context: .
+      dockerfile: Dockerfile.airflow
+    ports:
+      - "8080:8080"
+    environment:
+      AIRFLOW_HOME: /opt/airflow
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: sqlite:////opt/airflow/airflow.db
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      AIRFLOW__WEBSERVER__SECRET_KEY: mlops-esgi-2026
+      _AIRFLOW_WWW_USER_USERNAME: admin
+      _AIRFLOW_WWW_USER_PASSWORD: admin
+      PYTHONPATH: /opt/airflow
+      MLFLOW_TRACKING_URI: sqlite:////opt/airflow/mlruns/mlflow.db
+      API_URL: http://api:8000
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./mlproject:/opt/airflow/mlproject
+      - ./data:/opt/airflow/data
+      - ./models:/opt/airflow/models
+      - airflow_home:/opt/airflow
+    command: standalone
+    depends_on:
+      - api
+    restart: unless-stopped
+
+volumes:
+  airflow_home:
