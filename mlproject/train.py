@@ -91,7 +91,7 @@ def train(c: float = 1.0, max_iter: int = 1000) -> dict[str, float]:
         mlflow.log_metrics(metrics)
 
         # S5-6 : logger le modele
-        mlflow.sklearn.log_model(model, name="model")
+        mlflow.sklearn.log_model(model, artifact_path="model")
 
         # S5-7 bonus : matrice de confusion comme artefact
         fig, ax = plt.subplots(figsize=(5, 5))
