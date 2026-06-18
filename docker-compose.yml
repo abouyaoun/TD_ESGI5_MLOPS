@@ -24,6 +24,21 @@ services:
       - api
     restart: unless-stopped
 
+  mlflow:
+    image: python:3.11-slim
+    ports:
+      - "5000:5000"
+    volumes:
+      - mlflow_data:/mlflow
+    command: >
+      sh -c "pip install --quiet mlflow &&
+             mlflow server
+             --host 0.0.0.0
+             --port 5000
+             --backend-store-uri sqlite:////mlflow/mlflow.db
+             --default-artifact-root /mlflow/artifacts"
+    restart: unless-stopped
+
   airflow:
     build:
       context: .
@@ -54,3 +69,4 @@ services:
 
 volumes:
   airflow_home:
+  mlflow_data:
