@@ -18,6 +18,8 @@ services:
       - "8501:8501"
     environment:
       API_URL: http://api:8000
+      AIRFLOW_INTERNAL: http://airflow:8080
+      VPS_IP: "141.145.192.131"
     depends_on:
       - api
     restart: unless-stopped
