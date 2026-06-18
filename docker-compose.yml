@@ -51,7 +51,7 @@ services:
       _AIRFLOW_WWW_USER_USERNAME: admin
       _AIRFLOW_WWW_USER_PASSWORD: admin
       PYTHONPATH: /opt/airflow
-      MLFLOW_TRACKING_URI: sqlite:////opt/airflow/mlruns/mlflow.db
+      MLFLOW_TRACKING_URI: http://mlflow:5000
       API_URL: http://api:8000
     volumes:
       - ./dags:/opt/airflow/dags
@@ -62,6 +62,7 @@ services:
     command: standalone
     depends_on:
       - api
+      - mlflow
     restart: unless-stopped
 
 volumes:
