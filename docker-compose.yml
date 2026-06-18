@@ -31,13 +31,12 @@ services:
     volumes:
       - mlflow_data:/mlflow
     command: >
-      sh -c "pip install --quiet mlflow &&
+      sh -c "pip install --quiet 'mlflow==2.13.2' &&
              mlflow server
              --host 0.0.0.0
              --port 5000
              --backend-store-uri sqlite:////mlflow/mlflow.db
-             --default-artifact-root /mlflow/artifacts
-             --allowed-hosts '*'"
+             --default-artifact-root /mlflow/artifacts"
     restart: unless-stopped
 
   airflow:
