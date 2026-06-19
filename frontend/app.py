@@ -124,6 +124,7 @@ with st.sidebar:
     """)
 
     st.divider()
+    st.markdown("[📦 GitHub](https://github.com/abouyaoun/TD_ESGI5_MLOPS)")
     st.caption("Ayman BOUAYOUN · ESGI 5 · MLOps 2026")
 
 # ── Header ─────────────────────────────────────────────────────────────────────
@@ -444,5 +445,6 @@ with about_tab:
         <p style="font-size:1.3rem; font-weight:700; color:white; margin:0;">Ayman BOUAYOUN</p>
         <p style="color:#94a3b8; margin:4px 0;">ESGI 5 · Filière IA & Big Data · Promotion 2026</p>
         <p style="color:#64748b; font-size:0.85rem;">Projet MLOps · Déploiement VPS Oracle Cloud</p>
+        <a href="https://github.com/abouyaoun/TD_ESGI5_MLOPS" target="_blank" style="color:#38bdf8; font-size:0.9rem;">📦 github.com/abouyaoun/TD_ESGI5_MLOPS</a>
     </div>
     """, unsafe_allow_html=True)
